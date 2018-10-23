@@ -5,6 +5,18 @@ body {
   padding: 40px 15px;
   text-align: center;
 }
-#headshot {
-    width: 500px;
+#player {
+    margin-top: 50px;
+    margin-left: 60px;
+}
+#playerControls {
+  float:left;
+  margin-left: 60px;
+}
+
+.progress {
+  	padding-top: 5px;
+    padding-left: 10px;
+    width: 600px;
+
 }

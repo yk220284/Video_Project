@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- The above 3 meta tags *must* come first in the head; any other head content must come *after* these tags -->
+  <meta name="description" content="">
+  <meta name="author" content="">
+  <link rel="icon" href="../../favicon.ico">
+  <!-- for the button -->
+
+  <title>Synchronised Video</title>
+
+  <!-- Bootstrap core CSS -->
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+
+
+  <!-- Custom styles for this template -->
+  <link href="css/main.css" rel="stylesheet">
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
+</head>
+
+<body>
+
+  <nav class="navbar navbar-inverse navbar-fixed-top">
+    <div class="container">
+      <div class="navbar-header">
+        <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar"
+          aria-expanded="false" aria-controls="navbar">
+          <span class="sr-only">Toggle navigation</span>
+          <span class="icon-bar"></span>
+          <span class="icon-bar"></span>
+          <span class="icon-bar"></span>
+        </button>
+        <a class="navbar-brand" href="#">Project name</a>
+      </div>
+      <div id="navbar" class="collapse navbar-collapse">
+        <ul class="nav navbar-nav">
+          <li class="active"><a href="#wan">Button1</a></li>
+          <li><a href="#too">Button2</a></li>
+          <li><a href="#phree">Button3</a></li>
+        </ul>
+      </div>
+      <!--/.nav-collapse -->
+
+    </div>
+  </nav>
+
+  <div class="container">
+    <!-- 1. The <iframe> (and video player) will replace this <div> tag. -->
+    <div id="player"></div>
+
+  </div><!-- /.container -->
+
+  <div id='playerControls'>
+
+    <button id='play_button' type="button" class="btn btn-default btn-sm">
+      <span class="glyphicon glyphicon-play"></span> Play
+    </button>
+    <button id='pause_button' type="button" class="btn btn-default btn-sm">
+      <span class="glyphicon glyphicon-pause"></span> Pause
+    </button>
+  </div>
+
+
+  <div class="progress">
+
+    <div id='line' style='max-width: 580px;
+        height: 2px;
+        background-color: blue;
+        position: relative;
+        top: 5px;
+        '></div>
+
+
+    <div id='square' style='max-width: 15px;
+        height: 15px;
+        border-style: solid;
+        border-width: 2px;
+        position: relative;
+        top: -3px;
+        '></div>
+  </div>
+
+  <script>
+    var socket;
+    socket = io.connect('http://localhost:5000');
+
+
+
+    // 2. This code loads the IFrame Player API code asynchronously.
+    var tag = document.createElement('script');
+
+    tag.src = "https://www.youtube.com/iframe_api";
+    var firstScriptTag = document.getElementsByTagName('script')[0];
+    firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+
+    // 3. This function creates an <iframe> (and YouTube player)
+    //    after the API code downloads.
+    var player;
+
+    function onYouTubeIframeAPIReady() {
+      player = new YT.Player('player', {
+        height: '480',
+        width: '720',
+        videoId: 'PHB6n8HEMDg',
+        events: {
+          'onReady': onPlayerReady,
+          'onStateChange': onPlayerStateChange
+        },
+        playerVars: {
+          'controls': 0, //0 is no show
+          'playlist': 'PLsPGpE6rvshuTZ0-ke4OPKb-gPLCjkfAg',
+          'showinfo': 0,
+          'rel': 0,
+        }
+
+      });
+      console.log(player);
+    }
+
+
+    // jquery element
+    var progressBar = $('.progress');
+    var proSquare = $('#square');
+    var width = document.getElementById('line').getBoundingClientRect().width
+    var playControl = $('#playerControls');
+
+
+
+    function onPlayerReady(event) {
+      var totalTime = player.getDuration();
+      console.log('video length: ' + totalTime);
+      progressing();
+    }
+    // the function that updates square position
+    function progressing() {
+      setInterval(moveSquare, 200);
+    }
+
+    function moveSquare() {
+      var currentTime = player.getCurrentTime();
+      var totalTime = player.getDuration();
+      var fraction = currentTime / totalTime * 100;
+      proSquare.css('left', fraction.toString() + '%');
+    }
+    // 5. The API calls this function when the player's state changes.
+    //    The function indicates that when playing a video (state=1),
+    //    the player should play for six seconds and then stop.
+    var done = false;
+
+    function onPlayerStateChange(event) {
+
+      var state = player.getPlayerState();
+      if (state == 1) {
+        console.log('playing')
+      } else if (state == 2) {
+        console.log('pausing');
+      }
+
+      var time = player.getCurrentTime();
+      console.log('current time: ' + time);
+    }
+
+    progressBar.click(function (event) {
+      let ct = player.getCurrentTime();
+      console.log(ct);
+      var x = event.pageX - $('#line').offset().left;
+
+      console.log('X ' + x);
+      var data = {
+        relativeX: x,
+        percentage: x / width,
+      }
+      console.log(data);
+      socket.emit('playerInfo', data);
+      // player.seekTo(player.getCurrentTime());
+    })
+
+    playControl.click(function (event) {
+      var id = event.target.id;
+      var state;
+      if (id === 'play_button') {
+        player.playVideo();
+        state = 1;
+      } else if (id === 'pause_button') {
+        player.pauseVideo();
+        state = 2;
+      }
+      socket.emit('buttonState', state);
+    })
+
+
+    socket.on('playerInfo', function (t) {
+      console.log('t' + t.percentage * 100 + 'time ' + player.getCurrentTime());
+      proSquare.css('left', (t.percentage * 100).toString() + '%');
+      player.seekTo(t.percentage * player.getDuration());
+    })
+
+    socket.on('buttonState', function (s) {
+      if (s == 1) {
+        player.playVideo();
+      } else if (s == 2) {
+        player.pauseVideo();
+      }
+    })
+  </script>
+
+
+
+
+
+  <!-- Bootstrap core JavaScript
+    ================================================== -->
+  <!-- Placed at the end of the document so the pages load faster -->
+  <!-- <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+    <script src="js/jquery.min.js"></script> -->
+  <script src="js/bootstrap.min.js"></script>
+</body>
+
+</html>
