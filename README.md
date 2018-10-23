@@ -1,4 +1,4 @@
-# node-js-template
+## node-js-template
 
 A barebones Node.js app using [Express 4](http://expressjs.com/).
 
